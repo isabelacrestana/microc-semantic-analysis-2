@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import load_previous  # Disponibiliza os módulos das etapas anteriores.
 
-from ast_nodes import Block, FunctionDecl, IfStmt, Stmt, WhileStmt
-from cfg import BlockId, CFG, Jump
+from ast_nodes import Block, FunctionDecl, IfStmt, Stmt, WhileStmt, ReturnStmt
+from cfg import BlockId, CFG, Jump, ScopeExit, Return
+
 
 
 class CFGBuilder:
@@ -26,12 +27,46 @@ class CFGBuilder:
         None indica que os caminhos deste bloco não alcançam o próximo comando.
         """
 
-        raise NotImplementedError("implemente CFGBuilder._build_block")
+        for statement in block.statements:
+            if current is None:
+                break
+
+            current = self._build_statement(statement, current)
+
+        if current is not None:
+            self.cfg.blocks[current].operations.append(ScopeExit(block.scope))
+
+        return current
+    
 
     def _build_statement(self, statement: Stmt, current: BlockId) -> BlockId | None:
         """TODO: incorpore um comando ao CFG e devolva sua continuação normal."""
 
-        raise NotImplementedError("implemente CFGBuilder._build_statement")
+        if current is None:
+            return current
+
+        if isinstance(statement,Block):
+            return self._build_block(statement, current)
+
+        elif isinstance(statement, IfStmt):
+            return self._build_if(statement, current)
+
+        elif isinstance(statement, WhileStmt):
+            return self._build_while(statement, current)
+
+        elif isinstance(statement, ReturnStmt):
+
+            self.cfg.blocks[current].operations.append(statement)
+            self.cfg.terminate(current, Return(statement=statement))
+
+            return None
+        
+        else:
+            
+            self.cfg.blocks[current].operations.append(statement)
+            return current
+
+
 
     def _build_if(self, statement: IfStmt, current: BlockId) -> BlockId | None:
         """TODO: construa o fluxo da condicional e devolva sua continuação."""
