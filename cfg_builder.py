@@ -67,33 +67,46 @@ class CFGBuilder:
     def _build_if(self, statement: IfStmt, current: BlockId) -> BlockId | None:
         """TODO: construa o fluxo da condicional e devolva sua continuação."""
 
-        id_verdadeiro = self.cfg.new_block().id
-        id_falso = self.cfg.new_block().id
+        true_block = self.cfg.new_block().id
+        false_block = self.cfg.new_block().id
 
-        self.cfg.terminate(current, Branch(condition=statement.condition, true_target=id_verdadeiro, false_target=id_falso))
+        self.cfg.terminate(current, Branch(condition=statement.condition, true_target=true_block, false_target=false_block))
 
-        fim_verdadeiro = self._build_statement(statement.then_block, id_verdadeiro)
+        true_ending = self._build_statement(statement.then_block, true_block)
 
         if statement.else_block:
-            fim_falso = self._build_statement(statement.else_block, id_falso)
+            false_ending = self._build_statement(statement.else_block, false_block)
         else: 
-            fim_falso = id_falso
+            false_ending = false_block
 
-        if fim_verdadeiro is None and fim_falso is None:
+        if true_ending is None and false_ending is None:
             return None
 
         id_juncao = self.cfg.new_block().id
         
-        if fim_verdadeiro is not None:
-            self.cfg.terminate(fim_verdadeiro, Jump(target=id_juncao))
+        if true_ending is not None:
+            self.cfg.terminate(true_ending, Jump(target=id_juncao))
 
-        if fim_falso is not None:
-            self.cfg.terminate(fim_falso, Jump(target=id_juncao))
+        if false_ending is not None:
+            self.cfg.terminate(false_ending, Jump(target=id_juncao))
 
         return id_juncao
 
 
     def _build_while(self, statement: WhileStmt, current: BlockId) -> BlockId | None:
         """TODO: construa o fluxo do laço e devolva sua continuação."""
+        condition_block = self.cfg.new_block().id
+        body_block = self.cfg.new_block().id
+        out_block = self.cfg.new_block().id
 
-        raise NotImplementedError("implemente CFGBuilder._build_while")
+        self.cfg.terminate(current, Jump(target=condition_block))
+
+        self.cfg.terminate(condition_block, Branch(condition=statement.condition, true_target=body_block, false_target= out_block))
+
+        end_body = self._build_statement(statement.body, body_block)
+
+        if end_body is None:
+            self.cfg.terminate(end_body, Jump(target=condition_block))
+
+        return out_block
+

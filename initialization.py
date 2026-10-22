@@ -87,13 +87,32 @@ class InitializationAnalyzer:
                 # Grave os novos estados e sinalize changed quando houver
                 # alteração. A convergência depende dos conjuntos, não de um
                 # número fixo de passadas. Não emita erros neste laço.
-                raise NotImplementedError("implemente a atualização até ponto fixo")
+
+                if incoming != facts.initialized_in[block_id] or outgoing != facts.initialized_out[block_id]:
+                    facts.initialized_in[block_id] = incoming
+                    facts.initialized_out[block_id] = outgoing
+                    changed = True
+
         return facts
 
     def _meet_predecessors(
         self, block_id: BlockId, facts: InitializationFacts,
     ) -> set[Symbol]:
         predecessors = self.cfg.blocks[block_id].predecessors & self.reachable
+
         # TODO: interseção dos OUT destes predecessores. Não use união.
         # Nunca modifique um conjunto OUT ao calcular a interseção.
-        raise NotImplementedError("implemente a junção de inicialização")
+
+
+        if not predecessors:
+            return set()
+
+        pred_list = list(predecessors)
+        initial_p = pred_list[0]
+
+        results = set(facts.initialized_out[initial_p])
+
+        for pred in pred_list[1:]:
+            results &= facts.initialized_out[pred]
+
+        return results
