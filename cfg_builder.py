@@ -5,7 +5,7 @@ from __future__ import annotations
 import load_previous  # Disponibiliza os módulos das etapas anteriores.
 
 from ast_nodes import Block, FunctionDecl, IfStmt, Stmt, WhileStmt, ReturnStmt
-from cfg import BlockId, CFG, Jump, ScopeExit, Return
+from cfg import BlockId, CFG, Jump, ScopeExit, Return, Branch
 
 
 
@@ -45,7 +45,7 @@ class CFGBuilder:
         if current is None:
             return current
 
-        if isinstance(statement,Block):
+        if isinstance(statement, Block):
             return self._build_block(statement, current)
 
         elif isinstance(statement, IfStmt):
@@ -55,14 +55,10 @@ class CFGBuilder:
             return self._build_while(statement, current)
 
         elif isinstance(statement, ReturnStmt):
-
-            self.cfg.blocks[current].operations.append(statement)
             self.cfg.terminate(current, Return(statement=statement))
-
             return None
         
         else:
-            
             self.cfg.blocks[current].operations.append(statement)
             return current
 
@@ -71,7 +67,31 @@ class CFGBuilder:
     def _build_if(self, statement: IfStmt, current: BlockId) -> BlockId | None:
         """TODO: construa o fluxo da condicional e devolva sua continuação."""
 
-        raise NotImplementedError("implemente CFGBuilder._build_if")
+        id_verdadeiro = self.cfg.new_block().id
+        id_falso = self.cfg.new_block().id
+
+        self.cfg.terminate(current, Branch(condition=statement.condition, true_target=id_verdadeiro, false_target=id_falso))
+
+        fim_verdadeiro = self._build_statement(statement.then_block, id_verdadeiro)
+
+        if statement.else_block:
+            fim_falso = self._build_statement(statement.else_block, id_falso)
+        else: 
+            fim_falso = id_falso
+
+        if fim_verdadeiro is None and fim_falso is None:
+            return None
+
+        id_juncao = self.cfg.new_block().id
+        
+        if fim_verdadeiro is not None:
+            self.cfg.terminate(fim_verdadeiro, Jump(target=id_juncao))
+
+        if fim_falso is not None:
+            self.cfg.terminate(fim_falso, Jump(target=id_juncao))
+
+        return id_juncao
+
 
     def _build_while(self, statement: WhileStmt, current: BlockId) -> BlockId | None:
         """TODO: construa o fluxo do laço e devolva sua continuação."""
