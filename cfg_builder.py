@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import load_previous  # Disponibiliza os módulos das etapas anteriores.
 
-from ast_nodes import Block, FunctionDecl, IfStmt, Stmt, WhileStmt, ReturnStmt
-from cfg import BlockId, CFG, Jump, ScopeExit, Return, Branch
+from ast_nodes import Block, BoolLiteral, FunctionDecl, IfStmt, ReturnStmt, Stmt, WhileStmt
+from cfg import BlockId, Branch, CFG, Jump, Return, ScopeExit
 
 
 
@@ -34,7 +34,7 @@ class CFGBuilder:
             current = self._build_statement(statement, current)
 
         if current is not None:
-            self.cfg.blocks[current].operations.append(ScopeExit(block.scope))
+            self.cfg.blocks[current].operations.append(ScopeExit(block.metadata["scope"]))
 
         return current
     
@@ -94,18 +94,28 @@ class CFGBuilder:
 
 
     def _build_while(self, statement: WhileStmt, current: BlockId) -> BlockId | None:
-        """TODO: construa o fluxo do laço e devolva sua continuação."""
+        """Construa o fluxo do laço e devolva sua continuação."""
         condition_block = self.cfg.new_block().id
         body_block = self.cfg.new_block().id
-        out_block = self.cfg.new_block().id
-
         self.cfg.terminate(current, Jump(target=condition_block))
 
-        self.cfg.terminate(condition_block, Branch(condition=statement.condition, true_target=body_block, false_target= out_block))
+        is_infinite = isinstance(statement.condition, BoolLiteral) and statement.condition.value is True
+
+        if is_infinite:
+            self.cfg.terminate(condition_block, Jump(target=body_block))
+            end_body = self._build_statement(statement.body, body_block)
+            if end_body is not None:
+                self.cfg.terminate(end_body, Jump(target=condition_block))
+            return None
+
+        out_block = self.cfg.new_block().id
+        self.cfg.terminate(
+            condition_block,
+            Branch(condition=statement.condition, true_target=body_block, false_target=out_block),
+        )
 
         end_body = self._build_statement(statement.body, body_block)
-
-        if end_body is None:
+        if end_body is not None:
             self.cfg.terminate(end_body, Jump(target=condition_block))
 
         return out_block
